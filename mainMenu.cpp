@@ -7,15 +7,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 const int BUTTON_WIDTH = 100;
 const int BUTTON_HEIGHT = 50;
-const int ARROW_SIZE = 20;
 
 HWND buttonHWND;
 HWND hwndText;
-HWND radioCursor;
-HWND radioButton;
-HWND radioDefault;
+HWND comboBoxMode;
 int clickCount = 0;
-int currentMode = 0;
+int selIndex;
+bool isButtonPressed = false;
+clock_t buttonPressTime;
 
 void AddText(const std::wstring& text) {
     SendMessage(hwndText, EM_SETSEL, -1, -1);
@@ -28,27 +27,48 @@ void ReturnCursorToCenter(HWND hwnd) {
     POINT center = { (rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2 };
     ClientToScreen(hwnd, &center);
     SetCursorPos(center.x, center.y);
+    buttonPressTime = clock();
 }
 
-void MoveCursorRandomX() {
-    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
-    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-    int newX = rand() % screenWidth;
-    SetCursorPos(newX, screenHeight / 2); // Появление курсора на высоте центра экрана
-}
-
-void MoveButtonRandomPosition(HWND hwnd) {
+void MoveCursorRandomX(HWND hwnd) {
     RECT rect;
     GetClientRect(hwnd, &rect);
-    int maxX = rect.right - BUTTON_WIDTH;
-    int maxY = rect.bottom - BUTTON_HEIGHT;
-    int newX = rand() % maxX;
-    int newY = rand() % maxY;
-    SetWindowPos(buttonHWND, HWND_TOP, newX, newY, BUTTON_WIDTH, BUTTON_HEIGHT, SWP_SHOWWINDOW);
+    int screenWidth = rect.right - rect.left; 
+    int screenHeight = rect.bottom - rect.top; 
+    int newX = rect.left + rand() % screenWidth; 
+    int newY = rect.top + screenHeight / 2; 
+    SetCursorPos(newX, newY); 
+    buttonPressTime = clock();
 }
 
+void MoveCursorRandomPosition(HWND hwnd) {
+    RECT rect;
+    GetClientRect(hwnd, &rect);
+    RECT buttonRect;
+    GetWindowRect(buttonHWND, &buttonRect); 
+
+    int maxX = rect.right - BUTTON_WIDTH;
+    int maxY = rect.bottom - BUTTON_HEIGHT;
+
+    int newX, newY;
+    do {
+        newX = rand() % maxX;
+        newY = rand() % maxY;
+    } while (newX >= buttonRect.left && newX <= buttonRect.right && newY >= buttonRect.top && newY <= buttonRect.bottom);
+
+    SetCursorPos(rect.left + newX, rect.top + newY);
+    buttonPressTime = clock();
+}
+
+double DistanceBetweenPoints(POINT point1, POINT point2) {
+    double dx = (double)(point2.x - point1.x);
+    double dy = (double)(point2.y - point1.y);
+    return sqrt(dx * dx + dy * dy);
+}
+
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    // Register the window class
+
     const wchar_t CLASS_NAME[] = L"Sample Window Class";
 
     WNDCLASS wc = {};
@@ -59,45 +79,40 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     RegisterClass(&wc);
 
-    // Create the window
     HWND hwnd = CreateWindowEx(
-        0,                              // Optional window styles
-        CLASS_NAME,                     // Window class
-        L"WinAPI Button Test",          // Window text
-        WS_OVERLAPPEDWINDOW,            // Window style
-
-        // Size and position
-        CW_USEDEFAULT, CW_USEDEFAULT, 400, 300,
-
-        NULL,       // Parent window
-        NULL,       // Menu
-        hInstance,  // Instance handle
-        NULL        // Additional application data
+        0,                             
+        CLASS_NAME,                    
+        L"WinAPI Button Test",         
+        WS_OVERLAPPEDWINDOW,            
+        CW_USEDEFAULT, CW_USEDEFAULT, 800, 500, 
+        NULL,      
+        NULL,       
+        hInstance,  
+        NULL        
     );
 
     if (hwnd == NULL) {
         return 0;
     }
 
-    // Create button
     buttonHWND = CreateWindow(
-        L"BUTTON",                      // Predefined class; Unicode assumed 
-        L"MyButton",                    // Button text 
-        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  // Styles 
-        10,                             // x position 
-        125,                            // y position 
-        BUTTON_WIDTH,                   // Button width
-        BUTTON_HEIGHT,                  // Button height
-        hwnd,                           // Parent window
-        NULL,                           // No menu.
+        L"BUTTON",                     
+        L"MyButton",                   
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  
+        10,                             
+        400,                             
+        BUTTON_WIDTH,                   
+        BUTTON_HEIGHT,                 
+        hwnd,                           
+        NULL,                           
         (HINSTANCE)GetWindowLong(hwnd, GWLP_HINSTANCE),
-        NULL                            // Pointer not needed.
+        NULL                           
     );
 
     hwndText = CreateWindowEx(
         0, L"EDIT", NULL,
         WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY,
-        10, 200, 350, 80,
+        550, 50, 200, 400,
         hwnd, NULL, hInstance, NULL
     );
 
@@ -105,35 +120,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 0;
     }
 
-    // Create radio buttons
-    radioCursor = CreateWindow(
-        L"BUTTON", L"Cursor X Random",
-        WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON,
-        10, 10, 150, 30,
+    comboBoxMode = CreateWindow(
+        L"COMBOBOX", L"",
+        WS_VISIBLE | WS_CHILD | CBS_DROPDOWNLIST,
+        550, 10, 200, 300,
         hwnd, NULL, hInstance, NULL
     );
 
-    radioButton = CreateWindow(
-        L"BUTTON", L"Button Random Position",
-        WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON,
-        10, 50, 150, 30,
-        hwnd, NULL, hInstance, NULL
-    );
-
-    radioDefault = CreateWindow(
-        L"BUTTON", L"Default",
-        WS_VISIBLE | WS_CHILD | BS_AUTORADIOBUTTON | WS_GROUP,
-        10, 90, 150, 30,
-        hwnd, NULL, hInstance, NULL
-    );
-
-    if (radioCursor == NULL || radioButton == NULL || radioDefault == NULL) {
+    if (comboBoxMode == NULL) {
         return 0;
     }
 
+    SendMessage(comboBoxMode, CB_ADDSTRING, 0, (LPARAM)L"Режим 1 (фиксированный)");
+    SendMessage(comboBoxMode, CB_ADDSTRING, 0, (LPARAM)L"Режим 2 (по оси Х)");
+    SendMessage(comboBoxMode, CB_ADDSTRING, 0, (LPARAM)L"Режим 3 (в рандомном месте)");
+
     ShowWindow(hwnd, nCmdShow);
 
-    // Run the message loop
     MSG msg = {};
     while (GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
@@ -148,53 +151,60 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
     case WM_COMMAND:
         if (LOWORD(wParam) == BN_CLICKED && (HWND)lParam == buttonHWND) {
             clickCount++;
-            AddText(L"Click #" + std::to_wstring(clickCount));
+            AddText(L"Нажатие #" + std::to_wstring(clickCount));
+            double reactionTime = (double)(clock() - buttonPressTime) / CLOCKS_PER_SEC;
 
             POINT cursorPos;
-            GetCursorPos(&cursorPos);
-            ScreenToClient(hwnd, &cursorPos);
+            GetCursorPos(&cursorPos); 
+            ScreenToClient(hwnd, &cursorPos); 
 
             RECT buttonRect;
-            GetClientRect(buttonHWND, &buttonRect);
+            GetWindowRect(buttonHWND, &buttonRect); 
 
-            double targetX = buttonRect.left + (buttonRect.right - buttonRect.left) / 2.0;
-            double targetY = buttonRect.top + (buttonRect.bottom - buttonRect.top) / 2.0;
+            POINT buttonCenter = {
+                buttonRect.left + (buttonRect.right - buttonRect.left) / 2,
+                buttonRect.top + (buttonRect.bottom - buttonRect.top) / 2
+            };
 
-            double distance = sqrt(pow(cursorPos.x - targetX, 2) + pow(cursorPos.y - targetY, 2));
-            double timeReaction = double(clock()) / CLOCKS_PER_SEC;
+            double distanceToCenter = DistanceBetweenPoints(cursorPos, buttonCenter);
 
-            std::wstring result = L"Reaction Time: " + std::to_wstring(timeReaction) + L" seconds\r\n";
-            result += L"Fitts' Law Time: " + std::to_wstring(log2(2 * distance / BUTTON_WIDTH + 1)) + L" seconds";
-
-            AddText(result);
-
-            // Установка таймера для возвращения курсора в центр экрана через 2-3 секунды
+            double fittsTime = 50 + 150 * log2((double)(distanceToCenter / BUTTON_WIDTH) + 1);
+            if (selIndex != 2)
+            {
+                AddText(L"Время реакции: " + std::to_wstring(reactionTime) + L" сек. (Формула Фиттса: " + std::to_wstring(fittsTime) + L" сек.)");
+            }
+            else
+                AddText(L"Время реакции: " + std::to_wstring(reactionTime) + L" сек.");
+            isButtonPressed = true;
+            buttonPressTime = clock();
             SetTimer(hwnd, 1, 2000 + rand() % 1001, NULL);
         }
         break;
     case WM_TIMER:
         if (wParam == 1) {
-            ReturnCursorToCenter(hwnd);
             KillTimer(hwnd, 1);
+            if (isButtonPressed) {
+                isButtonPressed = false;
+                int selectedIndex = SendMessage(comboBoxMode, CB_GETCURSEL, 0, 0);
+                selIndex = selectedIndex;
+                switch (selectedIndex) {
+                case 0:
+                    ReturnCursorToCenter(hwnd);
+                    break;
+                case 1:
+                    MoveCursorRandomX(hwnd);
+                    break;
+                case 2:
+                    MoveCursorRandomPosition(hwnd);
+                    break;
+                default:
+                    break;
+                }
+            }
         }
         break;
     case WM_DESTROY:
         PostQuitMessage(0);
-        break;
-    case WM_LBUTTONDOWN:
-        if (clickCount < 10) {
-            // Выбор режима в зависимости от выбранной радио-кнопки
-            if (SendMessage(radioCursor, BM_GETCHECK, 0, 0) == BST_CHECKED) {
-                MoveCursorRandomX();
-            }
-            else if (SendMessage(radioButton, BM_GETCHECK, 0, 0) == BST_CHECKED) {
-                MoveButtonRandomPosition(hwnd);
-            }
-            else {
-                // Возврат курсора в центр, если выбран режим по умолчанию
-                ReturnCursorToCenter(hwnd);
-            }
-        }
         break;
     default:
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
