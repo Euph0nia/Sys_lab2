@@ -79,12 +79,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     RegisterClass(&wc);
 
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
     HWND hwnd = CreateWindowEx(
         0,                             
         CLASS_NAME,                    
         L"WinAPI Button Test",         
         WS_OVERLAPPEDWINDOW,            
-        CW_USEDEFAULT, CW_USEDEFAULT, 800, 500, 
+        screenWidth - 800, 0, 800, 500, // CW_USEDEFAULT, CW_USEDEFAULT
         NULL,      
         NULL,       
         hInstance,  
