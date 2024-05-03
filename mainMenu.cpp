@@ -8,6 +8,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 const int BUTTON_WIDTH = 100;
 const int BUTTON_HEIGHT = 50;
 
+const int COMBOBOX_WIDTH = 200;
+const int COMBOBOX_HEIGHT = 400;
+const int COUNTER_TEST = 20;
+
 HWND buttonHWND;
 HWND hwndText;
 HWND comboBoxMode;
@@ -39,7 +43,8 @@ void ReturnCursorToCenter(HWND hwnd) {
 void MoveCursorRandomX(HWND hwnd) {
     RECT rect;
     GetClientRect(hwnd, &rect);
-    int screenWidth = rect.right - rect.left; 
+    int screenWidth = rect.right - rect.left - 200; 
+    if (screenWidth <= 100) screenWidth = 150;
     int screenHeight = rect.bottom - rect.top; 
     int newX = rect.left + rand() % screenWidth; 
     int newY = rect.top + screenHeight / 2; 
@@ -57,7 +62,7 @@ void MoveCursorRandomPosition(HWND hwnd) {
     RECT buttonRect;
     GetWindowRect(buttonHWND, &buttonRect); 
 
-    int maxX = rect.right - BUTTON_WIDTH;
+    int maxX = rect.right - BUTTON_WIDTH - COMBOBOX_WIDTH;
     int maxY = rect.bottom - BUTTON_HEIGHT;
 
     int newX, newY;
@@ -113,7 +118,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         L"Клик",                   
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  
         10,                             
-        400,                             
+        200,                             
         BUTTON_WIDTH,                   
         BUTTON_HEIGHT,                 
         hwnd,                           
@@ -125,7 +130,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     hwndText = CreateWindowEx(
         0, L"EDIT", NULL,
         WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY,
-        550, 50, 200, 400,
+        550, 50, COMBOBOX_WIDTH, COMBOBOX_HEIGHT,
         hwnd, NULL, hInstance, NULL
     );
 
@@ -191,17 +196,24 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             };
 
             double distanceToCenter = DistanceBetweenPoints(cursorPos, buttonCenter);
-
-            double fittsTime = 50 + 150 * log2((double)(distanceToCenter / BUTTON_WIDTH) + 1);
-            if (selIndex != 2)
+            if (clickCount == COUNTER_TEST)
             {
-                AddText(L"Время реакции: " + std::to_wstring(reactionTime) + L" сек. (Формула Фиттса: " + std::to_wstring(fittsTime) + L" сек.)");
+                AddText(L"Тест завершен! Соверешено 20 кликов.");
+                ShowWindow(buttonHWND, SW_HIDE);
             }
             else
-                AddText(L"Время реакции: " + std::to_wstring(reactionTime) + L" сек.");
-            isButtonPressed = true;
-            buttonPressTime = clock();
-            SetTimer(hwnd, 1, 2000 + rand() % 1001, NULL);
+            {
+                double fittsTime = 50 + 150 * log2((double)(distanceToCenter / BUTTON_WIDTH) + 1);
+                if (selIndex != 2)
+                {
+                    AddText(L"Время реакции: " + std::to_wstring(reactionTime) + L" сек. (Формула Фиттса: " + std::to_wstring(fittsTime) + L" у.е.)");
+                }
+                else
+                    AddText(L"Время реакции: " + std::to_wstring(reactionTime) + L" сек.");
+                isButtonPressed = true;
+                buttonPressTime = clock();
+                SetTimer(hwnd, 1, 2000 + rand() % 1001, NULL);
+            }
         }
         break;
     case WM_TIMER:
