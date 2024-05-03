@@ -15,6 +15,8 @@ int clickCount = 0;
 int selIndex;
 bool isButtonPressed = false;
 clock_t buttonPressTime;
+POINT cursorPos;
+RECT buttonRect;
 
 void AddText(const std::wstring& text) {
     SendMessage(hwndText, EM_SETSEL, -1, -1);
@@ -28,6 +30,10 @@ void ReturnCursorToCenter(HWND hwnd) {
     ClientToScreen(hwnd, &center);
     SetCursorPos(center.x, center.y);
     buttonPressTime = clock();
+    
+    GetCursorPos(&cursorPos);
+    ScreenToClient(hwnd, &cursorPos);
+    GetWindowRect(buttonHWND, &buttonRect);
 }
 
 void MoveCursorRandomX(HWND hwnd) {
@@ -39,6 +45,10 @@ void MoveCursorRandomX(HWND hwnd) {
     int newY = rect.top + screenHeight / 2; 
     SetCursorPos(newX, newY); 
     buttonPressTime = clock();
+
+    GetCursorPos(&cursorPos);
+    ScreenToClient(hwnd, &cursorPos);
+    GetWindowRect(buttonHWND, &buttonRect);
 }
 
 void MoveCursorRandomPosition(HWND hwnd) {
@@ -87,7 +97,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         CLASS_NAME,                    
         L"WinAPI Button Test",         
         WS_OVERLAPPEDWINDOW,            
-        screenWidth - 800, 0, 800, 500, // CW_USEDEFAULT, CW_USEDEFAULT
+        0, 0, 800, 500, // CW_USEDEFAULT, CW_USEDEFAULT
         NULL,      
         NULL,       
         hInstance,  
@@ -100,7 +110,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     buttonHWND = CreateWindow(
         L"BUTTON",                     
-        L"MyButton",                   
+        L"Клик",                   
         WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,  
         10,                             
         400,                             
@@ -151,18 +161,29 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
+    case WM_ERASEBKGND:
+    {
+        HDC hdc = (HDC)wParam;
+        RECT rc;
+        GetClientRect(hwnd, &rc); 
+        HBRUSH hBrush = CreateSolidBrush(RGB(200, 220, 255)); 
+        FillRect(hdc, &rc, hBrush); 
+        DeleteObject(hBrush);
+        return (LRESULT)1; 
+    }
+
     case WM_COMMAND:
         if (LOWORD(wParam) == BN_CLICKED && (HWND)lParam == buttonHWND) {
             clickCount++;
             AddText(L"Нажатие #" + std::to_wstring(clickCount));
             double reactionTime = (double)(clock() - buttonPressTime) / CLOCKS_PER_SEC;
 
-            POINT cursorPos;
+            /*POINT cursorPos;
             GetCursorPos(&cursorPos); 
             ScreenToClient(hwnd, &cursorPos); 
 
             RECT buttonRect;
-            GetWindowRect(buttonHWND, &buttonRect); 
+            GetWindowRect(buttonHWND, &buttonRect); */
 
             POINT buttonCenter = {
                 buttonRect.left + (buttonRect.right - buttonRect.left) / 2,
